@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Leaky Bucket Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .quiz-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        .question {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+            display: none;
+        }
+        
+        .question.active {
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .question h3 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .options {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .option {
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .option:hover {
+            border-color: #667eea;
+            background: #f0f4f8;
+            transform: translateY(-2px);
+        }
+        
+        .option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .results.active {
+            display: block;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .result-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .result-card h3 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+        
+        .result-card p {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+        
+        .bucket-emoji {
+            font-size: 3em;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .restart-btn {
+            display: block;
+            margin: 30px auto 0;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .restart-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="quiz-card">
+            <h1>🪣 The Leaky Bucket Quiz</h1>
+            <p class="subtitle">Discover what might be draining your happiness bucket</p>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="quiz-content">
+                <!-- Questions will be generated here -->
+            </div>
+            
+            <div class="results" id="results">
+                <!-- Results will appear here -->
+            </div>
+            
+            <div class="nav-buttons">
+                <button class="btn-secondary" id="prevBtn" onclick="previousQuestion()" style="display: none;">Previous</button>
+                <button class="btn-primary" id="nextBtn" onclick="nextQuestion()">Start Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                question: "How do you typically feel after achieving a major goal or having an amazing experience?",
+                options: [
+                    { text: "Euphoric for a while, but then I return to feeling pretty much the same as before", points: { hedonic: 3 } },
+                    { text: "Satisfied and it adds to my overall contentment", points: { meaning: 2 } },
+                    { text: "Restless and already thinking about the next thing", points: { creative: 3 } },
+                    { text: "Happy but somehow still empty inside", points: { existential: 3 } }
+                ]
+            },
+            {
+                question: "When you're not actively engaged in something exciting, how do you feel?",
+                options: [
+                    { text: "Fine - I enjoy quiet, ordinary moments", points: { meaning: 2, physiological: 1 } },
+                    { text: "Bored and seeking the next thrill", points: { dopamine: 3 } },
+                    { text: "Anxious or like something's wrong", points: { emotional: 3 } },
+                    { text: "Like life lacks purpose or meaning", points: { existential: 2, meaning: 2 } }
+                ]
+            },
+            {
+                question: "What gives you the most lasting satisfaction?",
+                options: [
+                    { text: "Creating, building, or working on projects", points: { creative: 3, meaning: 2 } },
+                    { text: "Meaningful relationships and connections", points: { meaning: 3 } },
+                    { text: "New experiences and adventures", points: { dopamine: 2, hedonic: 2 } },
+                    { text: "I'm not sure - nothing seems to stick", points: { existential: 2, emotional: 2 } }
+                ]
+            },
+            {
+                question: "How would you describe your energy levels and sleep?",
+                options: [
+                    { text: "Generally good and consistent", points: { meaning: 1 } },
+                    { text: "High highs and low lows", points: { dopamine: 2, physiological: 2 } },
+                    { text: "Often tired despite doing things I enjoy", points: { physiological: 3, emotional: 2 } },
+                    { text: "Restless energy, trouble winding down", points: { creative: 2, physiological: 2 } }
+                ]
+            },
+            {
+                question: "When you think about your life, what's your biggest concern?",
+                options: [
+                    { text: "That I'll get bored or life will become routine", points: { dopamine: 2, creative: 2 } },
+                    { text: "That I'm not living up to my potential or purpose", points: { meaning: 3 } },
+                    { text: "That something bad might happen or things will fall apart", points: { emotional: 3 } },
+                    { text: "That nothing really matters in the end", points: { existential: 3 } }
+                ]
+            },
+            {
+                question: "How do you handle stress or difficult periods?",
+                options: [
+                    { text: "I tend to push through but it drains me", points: { emotional: 2, physiological: 2 } },
+                    { text: "I throw myself into new projects or experiences", points: { creative: 2, dopamine: 2 } },
+                    { text: "I seek support and try to process it", points: { meaning: 2 } },
+                    { text: "I question everything and wonder what the point is", points: { existential: 2 } }
+                ]
+            },
+            {
+                question: "What best describes your relationship with pleasure and fun?",
+                options: [
+                    { text: "I enjoy simple pleasures consistently", points: { meaning: 2 } },
+                    { text: "I need increasingly intense experiences to feel excited", points: { dopamine: 3 } },
+                    { text: "Fun feels good but hollow somehow", points: { meaning: 2, existential: 1 } },
+                    { text: "I have trouble enjoying things even when they should be fun", points: { emotional: 3, physiological: 1 } }
+                ]
+            },
+            {
+                question: "How do you feel about routine and stability?",
+                options: [
+                    { text: "I appreciate it and find it comforting", points: { meaning: 2, physiological: 1 } },
+                    { text: "It's okay but I need variety too", points: { hedonic: 1 } },
+                    { text: "I get restless and need to shake things up", points: { creative: 3, dopamine: 1 } },
+                    { text: "It makes me feel trapped or question my choices", points: { existential: 2 } }
+                ]
+            }
+        ];
+
+        const bucketTypes = {
+            hedonic: {
+                name: "Hedonic Adaptation (The Treadmill)",
+                description: "You experience joy and excitement, but quickly return to baseline. This is your brain's natural tendency to adapt to positive experiences. The 'leak' is biological - we're wired to not stay permanently elevated.",
+                advice: "Focus on gratitude practices, savor experiences more mindfully, and mix small daily pleasures with bigger events. Consider that the treadmill isn't a flaw - it's what motivates us to keep growing."
+            },
+            emotional: {
+                name: "Emotional Processing (The Slow Leak)",
+                description: "There might be unresolved emotions, stress, or low-level anxiety quietly draining your happiness bucket. Even if you're not consciously suffering, your system is working overtime in the background.",
+                advice: "Consider therapy, journaling, or other ways to process emotions. Pay attention to your stress levels and nervous system regulation. Sometimes the leak is what we haven't dealt with yet."
+            },
+            meaning: {
+                name: "Meaning vs. Pleasure Imbalance",
+                description: "Your life might be full of pleasurable experiences, but lacking deeper meaning or purpose. You're filling the bucket with champagne when it needs water - wrong input for what truly sustains you.",
+                advice: "Explore what gives your life deeper meaning beyond pleasure. This might involve service, creativity, spiritual practice, or aligning your actions with your core values."
+            },
+            dopamine: {
+                name: "High Sensation, Blunted Reward",
+                description: "Your brain has adapted to high-intensity experiences, making ordinary pleasures feel flat. The bucket now has higher walls - you need extraordinary input just to feel baseline happiness.",
+                advice: "Consider taking breaks from high-intensity experiences. Practice finding joy in smaller moments. Your dopamine system needs time to reset its sensitivity to everyday pleasures."
+            },
+            existential: {
+                name: "Existential Discrepancy",
+                description: "Even with an objectively great life, there's a subtle mismatch between your external circumstances and inner sense of self. The bucket might not quite be 'yours' - so nothing fills it perfectly.",
+                advice: "This often requires deep self-reflection about identity, values, and what truly matters to you. Consider working with a therapist or coach to explore the gap between your life and your authentic self."
+            },
+            physiological: {
+                name: "Physiological Undercurrents",
+                description: "Sleep, hormones, nutrition, or other physical factors might be affecting your ability to 'hold' happiness. The bucket's lining is compromised - a material issue, not a meaning one.",
+                advice: "Focus on the basics: consistent sleep, nutrition, exercise, and stress management. Consider getting bloodwork done to check for thyroid, vitamin deficiencies, or hormonal imbalances."
+            },
+            creative: {
+                name: "The Creative/Builder's Paradox",
+                description: "You're energized by creating, building, and imagining, but feel restless when things stabilize. You need constant creative momentum - the leak happens when you're not actively stirring the water.",
+                advice: "Embrace this as your design, not a flaw. Build in regular creative projects, even small ones. Plan for the valleys between big launches. Your happiness comes from the process, not the outcome."
+            }
+        };
+
+        let currentQuestion = 0;
+        let answers = {};
+        let scores = { hedonic: 0, emotional: 0, meaning: 0, dopamine: 0, existential: 0, physiological: 0, creative: 0 };
+
+        function initializeQuiz() {
+            const quizContent = document.querySelector('.quiz-content');
+            quizContent.innerHTML = questions.map((q, index) => `
+                <div class="question ${index === 0 ? 'active' : ''}" data-question="${index}">
+                    <h3>Question ${index + 1}: ${q.question}</h3>
+                    <div class="options">
+                        ${q.options.map((option, optionIndex) => `
+                            <div class="option" onclick="selectOption(${index}, ${optionIndex})">
+                                ${option.text}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            updateProgress();
+        }
+
+        function selectOption(questionIndex, optionIndex) {
+            const questionDiv = document.querySelector(`[data-question="${questionIndex}"]`);
+            const options = questionDiv.querySelectorAll('.option');
+            
+            options.forEach(option => option.classList.remove('selected'));
+            options[optionIndex].classList.add('selected');
+            
+            answers[questionIndex] = optionIndex;
+            
+            document.getElementById('nextBtn').style.display = 'block';
+        }
+
+        function nextQuestion() {
+            if (currentQuestion === 0) {
+                document.getElementById('nextBtn').textContent = 'Next';
+                document.getElementById('prevBtn').style.display = 'block';
+            }
+            
+            if (currentQuestion < questions.length - 1 && answers[currentQuestion] !== undefined) {
+                document.querySelector(`[data-question="${currentQuestion}"]`).classList.remove('active');
+                currentQuestion++;
+                document.querySelector(`[data-question="${currentQuestion}"]`).classList.add('active');
+                
+                if (currentQuestion === questions.length - 1) {
+                    document.getElementById('nextBtn').textContent = 'Get Results';
+                }
+                
+                updateProgress();
+            } else if (currentQuestion === questions.length - 1 && answers[currentQuestion] !== undefined) {
+                calculateResults();
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                document.querySelector(`[data-question="${currentQuestion}"]`).classList.remove('active');
+                currentQuestion--;
+                document.querySelector(`[data-question="${currentQuestion}"]`).classList.add('active');
+                
+                document.getElementById('nextBtn').textContent = currentQuestion === questions.length - 1 ? 'Get Results' : 'Next';
+                if (currentQuestion === 0) {
+                    document.getElementById('prevBtn').style.display = 'none';
+                }
+                
+                updateProgress();
+            }
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / questions.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function calculateResults() {
+            // Calculate scores
+            Object.keys(answers).forEach(questionIndex => {
+                const answerIndex = answers[questionIndex];
+                const question = questions[questionIndex];
+                const selectedOption = question.options[answerIndex];
+                
+                Object.keys(selectedOption.points).forEach(category => {
+                    scores[category] += selectedOption.points[category];
+                });
+            });
+
+            // Find top 2 categories
+            const sortedCategories = Object.keys(scores)
+                .sort((a, b) => scores[b] - scores[a])
+                .slice(0, 2);
+
+            // Show results
+            document.querySelector('.quiz-content').style.display = 'none';
+            document.querySelector('.nav-buttons').style.display = 'none';
+            document.querySelector('.progress-bar').style.display = 'none';
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="bucket-emoji">🪣💧</div>
+                <div class="result-card">
+                    <h3>Your Primary Leak: ${bucketTypes[sortedCategories[0]].name}</h3>
+                    <p>${bucketTypes[sortedCategories[0]].description}</p>
+                    <p><strong>What to try:</strong> ${bucketTypes[sortedCategories[0]].advice}</p>
+                </div>
+                ${scores[sortedCategories[1]] > 0 ? `
+                <div class="result-card" style="background: linear-gradient(135deg, #764ba2, #667eea);">
+                    <h3>Secondary Factor: ${bucketTypes[sortedCategories[1]].name}</h3>
+                    <p>${bucketTypes[sortedCategories[1]].description}</p>
+                    <p><strong>Also consider:</strong> ${bucketTypes[sortedCategories[1]].advice}</p>
+                </div>
+                ` : ''}
+                <button class="btn-primary restart-btn" onclick="restartQuiz()">Take Quiz Again</button>
+            `;
+            resultsDiv.classList.add('active');
+        }
+
+        function restartQuiz() {
+            currentQuestion = 0;
+            answers = {};
+            scores = { hedonic: 0, emotional: 0, meaning: 0, dopamine: 0, existential: 0, physiological: 0, creative: 0 };
+            
+            document.querySelector('.quiz-content').style.display = 'block';
+            document.querySelector('.nav-buttons').style.display = 'flex';
+            document.querySelector('.progress-bar').style.display = 'block';
+            document.getElementById('results').classList.remove('active');
+            
+            document.getElementById('nextBtn').textContent = 'Start Quiz';
+            document.getElementById('prevBtn').style.display = 'none';
+            
+            initializeQuiz();
+        }
+
+        // Initialize the quiz when page loads
+        window.onload = function() {
+            initializeQuiz();
+        };
+    </script>
+</body>
+</html>
